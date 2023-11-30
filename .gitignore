@@ -12,3 +12,6 @@ result
 weights/
 scripts/
 demos/
+nii_depressed.jpg
+vilt_vqa.ckpt
+vqa_dict.json
