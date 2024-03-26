@@ -181,6 +181,8 @@ class ViLTransformerSS(pl.LightningModule):
             "patch_index": patch_index,
         }
 
+        print(f"cls feat shape: {ret['cls_feats'].shape}")
+
         return ret
 
     def forward(self, batch):

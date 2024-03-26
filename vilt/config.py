@@ -27,7 +27,7 @@ def config():
     # Image setting
     train_transform_keys = ["pixelbert"]
     val_transform_keys = ["pixelbert"]
-    image_size = 384
+    image_size = 224
     max_image_len = -1
     patch_size = 32
     draw_false_image = 1

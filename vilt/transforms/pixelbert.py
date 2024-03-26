@@ -16,7 +16,6 @@ def pixelbert_transform(size=800):
         ]
     )
 
-
 def pixelbert_transform_randaug(size=800):
     longer = int((1333 / 800) * size)
     trs = transforms.Compose(
