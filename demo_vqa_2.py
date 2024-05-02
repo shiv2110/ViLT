@@ -8,7 +8,7 @@ import numpy as np
 import re
 import json
 import urllib.request
-from scipy.sparse.linalg import eigsh
+from scipy.sparse.linalg import eigsh, eigs
 from scipy.sparse import diags
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
@@ -21,7 +21,7 @@ from PIL import Image
 from vilt.config import ex
 from vilt.modules import ViLTransformerSS
 
-from vilt.transforms import pixelbert_transform
+from vilt.transforms import pixelbert_transform, pixelbert_transform_randaug
 from vilt.datamodules.datamodule_base import get_pretrained_tokenizer
 import sys
 
@@ -72,7 +72,8 @@ def main(_config):
             else:
                 image = Image.open(url)
             # orig_shape = np.array(image).shape
-            img = pixelbert_transform(size=IMAGE_SIZE)(image)
+            # img = pixelbert_transform(size=IMAGE_SIZE)(image)
+            img = pixelbert_transform_randaug(size=IMAGE_SIZE)(image)
             # print("pixelberted image shape: {}".format(img.shape))
             img = img.unsqueeze(0).to(device)
 
@@ -96,30 +97,33 @@ def main(_config):
         # print(np.array(image), answer)
         # return [np.array(image), answer], ret['image_feats'][0], orig_shape
         # return [np.array(image), answer], ret['image_feats'][0], img
-        return answer, ret['image_feats'][0], ret['text_feats'][0], img, text_tokens
+        return answer, ret['merged_feats'], img, text_tokens
 
 
     # question = "What is the colour of her pants?"
-    # question = "Does he have earphones?"
-    question = "Is he wearing glasses?"
+    # question = "Where is Vaishnavi?"
+    # question = "Did he wear eye glasses?"
     # question = "Is there an owl?"
     # question = "Is the man swimming?"
     # question = "What animals are shown?"
-    # question = "What animal hat did she wear?"
+    question = "What animal hat did she wear?"
     # question = "What is the color of the flowers?"
     # question = "How many windows are there?"
     
 
     # result, image_feats, text_feats, image, text_tokens = infer('easy_test.jpg', 'What is the colour of the ball?')
-    result, image_feats, text_feats, image, text_tokens = infer('images/weird_dj.jpg', question)
-    # result, image_feats, text_feats, image, text_tokens = infer('images/clock_owl.jpg', question)
+    # result, merged_feats, image, text_tokens = infer('images/weird_dj.jpg', question)
+    # result, merged_feats, image, text_tokens = infer('images/clock_owl.jpg', question)
     # result, image_feats, text_feats, image, text_tokens = infer('images/swim.jpg', question)
-    # result, image_feats, text_feats, image, text_tokens = infer('images/nee-sama.jpeg', question)
-    # result, image_feats, text_feats, image, text_tokens = infer('../../nii_depressed.jpg', question)
-    # result, image_feats, text_feats, image, text_tokens = infer('images/skii.jpg', question)
+    result, merged_feats, image, text_tokens = infer('images/nee-sama.jpeg', question)
+    # result, merged_feats, image, text_tokens = infer('../../nii_depressed.jpg', question)
+    # result, merged_feats, image, text_tokens = infer('images/skii.jpg', question)
     # result, image_feats, text_feats, image, text_tokens = infer('images/cows.jpg', question)
     # result, image_feats, text_feats, image, text_tokens = infer("https://s3.geograph.org.uk/geophotos/06/21/24/6212487_1cca7f3f_1024x1024.jpg", question)
     PATCH_SIZE = 32
+
+    print(f"Shape of merged feats: {merged_feats.shape}")
+    text_length = len(text_tokens) + 2 ## [CLS] and [SEP]
 
 
     print(f"QUESTION: {question}")
@@ -128,8 +132,8 @@ def main(_config):
     # print("Feature shape: {} | orig_img shape: {}".format(feats.shape, pp_img_shape))
     # sys.exit()
 
-    def get_eigen (feats):
-        feats = F.normalize(feats, p = 2, dim = -1)
+    def get_eigen (feats, modality):
+        feats = F.normalize(feats.squeeze(dim = 0), p = 2, dim = -1)
 
         W_feat = (feats @ feats.T)
 
@@ -151,28 +155,29 @@ def main(_config):
         # L[ np.isnan(L) ] = 0
         # L[ L == np.inf ] = 0
         try:
-            eigenvalues, eigenvectors = eigsh(L, k = 5, which = 'LM', sigma = 0, M = D)
+            eigenvalues, eigenvectors = eigs(L, k = 5, which = 'LM', sigma = 0, M = D)
         except:
-            try:
-                eigenvalues, eigenvectors = eigsh(L, k = 5, which = 'SM', sigma = 0, M = D)
-            except:
-                eigenvalues, eigenvectors = eigsh(L, k = 5, which = 'LM', M = D)
-
+            eigenvalues, eigenvectors = eigs(L, k = 5, which = 'SM', sigma = 0, M = D)
         
 
 
         eigenvalues, eigenvectors = torch.from_numpy(eigenvalues), torch.from_numpy(eigenvectors.T).float()
-        n_tuple = torch.kthvalue(eigenvalues.real, 2)
-        fev_idx = n_tuple.indices
-        return eigenvectors[fev_idx]
+        if modality == "image":
+            return eigenvectors[1][text_length: ]
+        else:
+            return eigenvectors[1][ :text_length]
 
-    text_relevance = torch.abs(get_eigen(text_feats[1:-1]))
+
+    # text_relevance = torch.abs(get_eigen(text_feats[1:-1]))
     # text_relevance = get_eigen(text_feats[1:-1])
 
-    # dim = int(image_relevance.numel() ** 0.5)
-    image_relevance = torch.abs(get_eigen(image_feats[1:, :]))
+    # # dim = int(image_relevance.numel() ** 0.5)
+    # image_relevance = get_eigen(image_feats[1:, :])
 
-
+    text_relevance = get_eigen(merged_feats, "text")[1:-1]
+    image_relevance = get_eigen(merged_feats, "image")[1:]
+    # print()
+    
     image_relevance = image_relevance.reshape(1, 1, pp_img_shape[0]//PATCH_SIZE, pp_img_shape[1]//PATCH_SIZE)
     image_relevance = torch.nn.functional.interpolate(image_relevance, size=pp_img_shape, mode='bilinear')
     image_relevance = image_relevance.reshape(pp_img_shape[0], pp_img_shape[1]).cpu().numpy()

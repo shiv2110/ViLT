@@ -162,6 +162,8 @@ class ViLTransformerSS(pl.LightningModule):
             x, _attn = blk(x, mask=co_masks)
 
         x = self.transformer.norm(x)
+        merged_feats = x
+        # print(f"Text embeddings shape: {text_embeds.shape}")
         text_feats, image_feats = (
             x[:, : text_embeds.shape[1]],
             x[:, text_embeds.shape[1] :],
@@ -179,6 +181,7 @@ class ViLTransformerSS(pl.LightningModule):
             "text_ids": text_ids,
             "text_masks": text_masks,
             "patch_index": patch_index,
+            "merged_feats": merged_feats
         }
 
         print(f"cls feat shape: {ret['cls_feats'].shape}")
