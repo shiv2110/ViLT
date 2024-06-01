@@ -81,15 +81,15 @@ def main(_config):
 
         batch = {"text": [text], "image": [img]}
 
-        with torch.no_grad():
-            encoded = tokenizer(batch["text"])
-            text_tokens = tokenizer.tokenize(batch["text"][0])
-            print(text_tokens)
-            batch["text_ids"] = torch.tensor(encoded["input_ids"]).to(device)
-            batch["text_labels"] = torch.tensor(encoded["input_ids"]).to(device)
-            batch["text_masks"] = torch.tensor(encoded["attention_mask"]).to(device)
-            ret = model.infer(batch)
-            vqa_logits = model.vqa_classifier(ret["cls_feats"])
+        # with torch.no_grad():
+        encoded = tokenizer(batch["text"])
+        text_tokens = tokenizer.tokenize(batch["text"][0])
+        print(text_tokens)
+        batch["text_ids"] = torch.tensor(encoded["input_ids"]).to(device)
+        batch["text_labels"] = torch.tensor(encoded["input_ids"]).to(device)
+        batch["text_masks"] = torch.tensor(encoded["attention_mask"]).to(device)
+        ret = model.infer(batch)
+        vqa_logits = model.vqa_classifier(ret["cls_feats"])
 
         answer = id2ans[str(vqa_logits.argmax().item())]
         # print("cls features shape: {}".format(ret['image_feats'][0].shape))
@@ -101,23 +101,30 @@ def main(_config):
 
     # question = "What is the colour of her pants?"
     # question = "Does he have earphones?"
-    question = "Is he wearing glasses?"
+    # question = "Is he wearing glasses?"
     # question = "Is there an owl?"
     # question = "Is the man swimming?"
     # question = "What animals are shown?"
     # question = "What animal hat did she wear?"
     # question = "What is the color of the flowers?"
     # question = "How many windows are there?"
+    # question = "Is there a laptop?"
+    question = "What is the girl in white dress doing?"
+
     
 
     # result, image_feats, text_feats, image, text_tokens = infer('easy_test.jpg', 'What is the colour of the ball?')
-    result, image_feats, text_feats, image, text_tokens = infer('images/weird_dj.jpg', question)
+    # result, image_feats, text_feats, image, text_tokens = infer('images/weird_dj.jpg', question)
     # result, image_feats, text_feats, image, text_tokens = infer('images/clock_owl.jpg', question)
     # result, image_feats, text_feats, image, text_tokens = infer('images/swim.jpg', question)
     # result, image_feats, text_feats, image, text_tokens = infer('images/nee-sama.jpeg', question)
     # result, image_feats, text_feats, image, text_tokens = infer('../../nii_depressed.jpg', question)
     # result, image_feats, text_feats, image, text_tokens = infer('images/skii.jpg', question)
     # result, image_feats, text_feats, image, text_tokens = infer('images/cows.jpg', question)
+    # result, image_feats, text_feats, image, text_tokens = infer('images/shiv.jpg', question)
+    result, image_feats, text_feats, image, text_tokens = infer('images/demon.jpg', question)
+
+
     # result, image_feats, text_feats, image, text_tokens = infer("https://s3.geograph.org.uk/geophotos/06/21/24/6212487_1cca7f3f_1024x1024.jpg", question)
     PATCH_SIZE = 32
 
@@ -135,7 +142,7 @@ def main(_config):
 
         W_feat = (W_feat * (W_feat > 0))
         W_feat = W_feat / W_feat.max() 
-        W_feat = W_feat.cpu().numpy()
+        W_feat = W_feat.cpu().detach().numpy()
 
         def get_diagonal (W):
             D = row_sum(W)
@@ -151,10 +158,10 @@ def main(_config):
         # L[ np.isnan(L) ] = 0
         # L[ L == np.inf ] = 0
         try:
-            eigenvalues, eigenvectors = eigsh(L, k = 5, which = 'LM', sigma = 0, M = D)
+            eigenvalues, eigenvectors = eigsh(L, k = 5, which = 'LM', sigma = -0.5, M = D)
         except:
             try:
-                eigenvalues, eigenvectors = eigsh(L, k = 5, which = 'SM', sigma = 0, M = D)
+                eigenvalues, eigenvectors = eigsh(L, k = 5, which = 'SM', sigma = -0.5, M = D)
             except:
                 eigenvalues, eigenvectors = eigsh(L, k = 5, which = 'LM', M = D)
 
@@ -165,6 +172,7 @@ def main(_config):
         n_tuple = torch.kthvalue(eigenvalues.real, 2)
         fev_idx = n_tuple.indices
         return eigenvectors[fev_idx]
+        # return eigenvectors[1]
 
     text_relevance = torch.abs(get_eigen(text_feats[1:-1]))
     # text_relevance = get_eigen(text_feats[1:-1])
@@ -209,13 +217,6 @@ def main(_config):
     plt.colorbar(ti, orientation = "horizontal", ax = axs[1])
     # plt.imshow(vis)
     plt.show()
-
-
-
-
-
-
-
 
 
 

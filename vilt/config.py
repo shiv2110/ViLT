@@ -79,6 +79,8 @@ def config():
     load_path = ""
     num_workers = 8
     precision = 16
+    method_type = ""
+
 
 
 # Named configs for "environment" which define gpus and nodes, and paths

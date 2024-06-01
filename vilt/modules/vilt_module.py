@@ -160,10 +160,20 @@ class ViLTransformerSS(pl.LightningModule):
 
         for i, blk in enumerate(self.transformer.blocks):
             x, _attn = blk(x, mask=co_masks)
+            # if i == 10: break
+            # print(type(_attn))
+            # print(_attn.shape)
+        # print(_attn)
 
         x = self.transformer.norm(x)
+        # print(x.shape, _attn.shape)
+        ########################### CAUTION #############################
+        # x = torch.matmul()
+
+
         merged_feats = x
-        # print(f"Text embeddings shape: {text_embeds.shape}")
+
+        # print(f"Merged embeddings shape: {merged_feats.shape}")
         text_feats, image_feats = (
             x[:, : text_embeds.shape[1]],
             x[:, text_embeds.shape[1] :],

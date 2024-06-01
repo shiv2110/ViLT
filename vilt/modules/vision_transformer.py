@@ -306,6 +306,24 @@ class Attention(nn.Module):
         self.proj = nn.Linear(dim, dim)
         self.proj_drop = nn.Dropout(proj_drop)
 
+        self.attn_gradients = None
+        self.attention_map = None
+
+    def save_attention_map(self, attention_map):
+        # print(f"cross attn map shape: {attention_map.shape}")
+        self.attention_map = attention_map
+        
+    def get_attention_map(self): #baka
+        # print(f"cross attn map shape: {self.attention_map.shape}")
+        return self.attention_map
+
+
+    def save_attn_gradients (self, attn_gradients): #baka
+        self.attn_gradients = attn_gradients
+
+    def get_attn_gradients (self): #baka
+        return self.attn_gradients
+
     def forward(self, x, mask=None):
         B, N, C = x.shape
         qkv = (
@@ -323,7 +341,13 @@ class Attention(nn.Module):
         if mask is not None:
             mask = mask.bool()
             attn = attn.masked_fill(~mask[:, None, None, :], float("-inf"))
-        attn = attn.softmax(dim=-1)
+        attn = attn.softmax(dim=-1) 
+
+        ####################### hooking for gradients baka #################
+        # attn = attn.requires_grad_(True)
+        self.save_attention_map(attn)
+        attn.register_hook(self.save_attn_gradients) 
+
         attn = self.attn_drop(attn)
 
         x = (attn @ v).transpose(1, 2).reshape(B, N, C)
